@@ -18,7 +18,7 @@ class Synthesizer:
         self.active_notes = {}
         self.lock = threading.Lock()
         self.stream = sd.OutputStream(
-            sample_rate=SAMPLE_RATE,
+            samplerate=SAMPLE_RATE,
             channels=1,
             blocksize=BUFFER_SIZE,
             callback=self.audio_callback,
@@ -51,3 +51,24 @@ class Synthesizer:
 
         # Write the samples to the output stream
         outdata[:] = samples.reshape(-1, 1)
+
+    def note_on(self, note):
+        with self.lock:
+            if note not in self.active_notes:
+                self.active_notes[note] = 0.0
+
+    def note_off(self, note):
+        with self.lock:
+            if note in self.active_notes:
+                del self.active_notes[note]
+
+
+class SynthWrapper:
+    def __init__(self):
+        self.synth = Synthesizer()
+
+    def on_midi_event(self, event):
+        if event.type == "note_on":
+            self.synth.note_on(event.note)
+        elif event.type == "note_off":
+            self.synth.note_off(event.note)

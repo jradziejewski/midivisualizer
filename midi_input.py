@@ -2,16 +2,26 @@ import time
 import mido  # type: ignore
 from dispatcher import MidiEvent
 
-inputs = mido.get_input_names()
-inport = mido.open_input(inputs[0])
 
+class MidiInput:
+    def __init__(self, dispatcher, device_index=0):
+        inputs = mido.get_input_names()
+        if not inputs:
+            raise RuntimeError("No MIDI input devices found.")
 
-print(f"Listening to MIDI input on device: {inputs[0]}...")
+        name = inputs[device_index]
+        print(name)
+        self.inport = mido.open_input(name)
+        self.dispatcher = dispatcher
+        print(f"Listening to MIDI input on device: {name}...")
 
-while True:
-    msg = inport.receive()
-    if msg.type in ["note_on", "note_off"]:
-        event = MidiEvent(time.time(), msg.note, msg.velocity, msg.type)
-        print(event)
-    elif KeyboardInterrupt:
-        break
+    def poll(self):
+        for msg in self.inport.iter_pending():
+            if msg.type not in ("note_on", "note_off"):
+                continue
+
+            now = time.time()
+            event = MidiEvent(
+                timestamp=now, note=msg.note, velocity=msg.velocity, type=msg.type
+            )
+            self.dispatcher.dispatch(event)
